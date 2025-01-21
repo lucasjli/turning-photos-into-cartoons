@@ -1,7 +1,7 @@
 # Assignment Three Turning Photos into Cartoons (20%)
 
 
-**Due date 5 April at 11:30 pm**
+**Due date 4 April at 11:30 pm**
 
 ## Instruction
 * Fork the project by clicking the "Fork" button on the top-right corner.
@@ -20,7 +20,7 @@ An animated movie production company called GelAnim wants to turn millions of ph
 
 |  Before Cartoonifying | After Cartoonifying |
 |-----------|---------|
-| <img src="https://elearn.waikato.ac.nz/pluginfile.php/3285560/mod_resource/content/1/eg_bumblebee2.jpg"/>|<img src="https://elearn.waikato.ac.nz/pluginfile.php/3285559/mod_resource/content/1/eg_bumblebee2_edited.jpg" />|
+| <img src="https://elearn.waikato.ac.nz/pluginfile.php/3646570/mod_resource/content/1/eg_bumblebee2.jpg"/>|<img src="https://elearn.waikato.ac.nz/pluginfile.php/3646569/mod_resource/content/1/eg_bumblebee2_edited.jpg" />|
 
  	
 GelAnim already have a Java program that does this, but it takes about FIVE seconds per 8 MPixel photo, which is far too slow. So they are asking you to see if you can port parts of the program to run on a GPU, so that it runs faster.
@@ -42,7 +42,7 @@ The following sequence of images shows the output of each of the stages in GelAn
 <table style="width:100%">
   <tbody>
      <tr><th> Step </th><th>Result Image</th></tr>
-<tr><td >1. The original image, showing just one small 200x200 area of the image. </td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3285561/mod_resource/content/1/eg_bumblebee.jpg" width="450"/></td></tr>
+<tr><td >1. The original image, showing just one small 200x200 area of the image. </td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3646571/mod_resource/content/1/eg_bumblebee.jpg" width="450"/></td></tr>
 <tr><td >2. After applying the 5x5 Gaussian Blur filter. This takes each colour channel of each pixel and combines it with the values of the adjacent pixels, by multiplying them by the following matrix (so the pixel's own value is multiplied by 15, etc).
                
                 [2,  4,  5,  4,  2]
@@ -51,7 +51,7 @@ The following sequence of images shows the output of each of the stages in GelAn
                 [4,  9, 12,  9,  4]
                 [2,  4,  5,  4,  2]
                 
-</td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3285562/mod_resource/content/1/eg_bumblebee_blurred.jpg"  /></td></tr>
+</td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3646572/mod_resource/content/1/eg_bumblebee_blurred.jpg"  /></td></tr>
 <tr><td>
      3. After applying the horizontal and vertical Sobel edge filters to the blurred image:   
    
@@ -60,10 +60,10 @@ The following sequence of images shows the output of each of the stages in GelAn
                      [-1,  0, +1]                 [-1, -2, -1]
   
                  
-</td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3285557/mod_resource/content/1/eg_bumblebee_edges.jpg" /></td></tr>
+</td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3646567/mod_resource/content/1/eg_bumblebee_edges.jpg" /></td></tr>
 <tr><td >4. After applying the simple colour quantization algorithm to each pixel of the original image. This example uses just THREE values per channel, 
-so all the red channel values are rounded to the nearest of 0, 127 or 255, and similarly for the green and blue channels.</td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3285556/mod_page/content/1/eg_bumblebee_colours.jpg" /></td></tr>
-<tr><td >5. The final 'cartoon' image is formed by drawing the black edges on top of the colour-reduced image. </td><td> <img src="https://elearn.waikato.ac.nz/pluginfile.php/3285558/mod_resource/content/1/eg_bumblebee_edited.jpg" /></td></tr>
+so all the red channel values are rounded to the nearest of 0, 127 or 255, and similarly for the green and blue channels.</td><td><img src="https://elearn.waikato.ac.nz/pluginfile.php/3646566/mod_page/content/1/eg_bumblebee_colours.jpg" /></td></tr>
+<tr><td >5. The final 'cartoon' image is formed by drawing the black edges on top of the colour-reduced image. </td><td> <img src="https://elearn.waikato.ac.nz/pluginfile.php/3646568/mod_resource/content/1/eg_bumblebee_edited.jpg" /></td></tr>
     </tbody>
 </table>
 
