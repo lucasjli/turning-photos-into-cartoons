@@ -397,16 +397,20 @@ public class Cartoonify {
         long startQuantize = System.currentTimeMillis();
         int[] oldPixels = currentImage();
         int[] newPixels = new int[width * height];
-        for (int y = 0; y < height; y++) {
+        IntStream.range(0, height).parallel().forEach(y -> {
+            int yOffset = y * width;
             for (int x = 0; x < width; x++) {
-                int rgb = oldPixels[y * width + x];
-                int newRed = quantizeColour(red(rgb), numColours);
-                int newGreen = quantizeColour(green(rgb), numColours);
-                int newBlue = quantizeColour(blue(rgb), numColours);
-                int newRGB = createPixel(newRed, newGreen, newBlue);
-                newPixels[y * width + x] = newRGB;
+                int rgb = oldPixels[yOffset + x];
+                int newRed = red(rgb);
+                int newGreen = green(rgb);
+                int newBlue = blue(rgb);
+                newPixels[yOffset + x] = createPixel(
+                        quantizeColour(newRed, numColours),
+                        quantizeColour(newGreen, numColours),
+                        quantizeColour(newBlue, numColours)
+                );
             }
-        }
+        });
         pushImage(newPixels);
         long endQuantize = System.currentTimeMillis();
         if (debug) {
