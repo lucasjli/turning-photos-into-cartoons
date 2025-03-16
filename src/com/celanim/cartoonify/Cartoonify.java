@@ -359,7 +359,9 @@ public class Cartoonify {
     public void sobelEdgeDetect() {
         long startEdges = System.currentTimeMillis();
         int[] newPixels = new int[width * height];
-        for (int y = 0; y < height; y++) {
+
+        IntStream.range(0, height).parallel().forEach(y -> {
+            int yOffset = y * width;
             for (int x = 0; x < width; x++) {
                 int redVertical = convolution(x, y, SOBEL_VERTICAL_FILTER, RED);
                 int greenVertical = convolution(x, y, SOBEL_VERTICAL_FILTER, GREEN);
@@ -372,12 +374,12 @@ public class Cartoonify {
                 // we could take use sqrt(vertGrad^2 + horizGrad^2), but simple addition catches most edges.
                 int totalGradient = verticalGradient + horizontalGradient;
                 if (totalGradient >= edgeThreshold) {
-                    newPixels[y * width + x] = black; // we colour the edges black
+                    newPixels[yOffset + x] = black; // we colour the edges black
                 } else {
-                    newPixels[y * width + x] = white;
+                    newPixels[yOffset + x] = white;
                 }
             }
-        }
+        });
         pushImage(newPixels);
         long endEdges = System.currentTimeMillis();
         if (debug) {
