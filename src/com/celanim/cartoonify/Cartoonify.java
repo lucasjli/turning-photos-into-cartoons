@@ -467,16 +467,13 @@ public class Cartoonify {
         cloneImage(otherImage);
         int[] photoPixels = popImage();
         int[] newPixels = new int[width * height];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int index = y * width + x;
-                if (maskPixels[index] == maskColour) {
-                    newPixels[index] = photoPixels[index];
-                } else {
-                    newPixels[index] = maskPixels[index];
-                }
+        IntStream.range(0, width * height).parallel().forEach(index -> {
+            if (maskPixels[index] == maskColour) {
+                newPixels[index] = photoPixels[index];
+            } else {
+                newPixels[index] = maskPixels[index];
             }
-        }
+        });
         pushImage(newPixels);
         long endMasking = System.currentTimeMillis();
         if (debug) {
