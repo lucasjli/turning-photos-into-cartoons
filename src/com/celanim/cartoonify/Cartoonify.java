@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
 import javax.imageio.ImageIO;
 
@@ -319,14 +320,15 @@ public class Cartoonify {
     public void gaussianBlur() {
         long startBlur = System.currentTimeMillis();
         int[] newPixels = new int[width * height];
-        for (int y = 0; y < height; y++) {
+        IntStream.range(0, height).parallel().forEach(y -> {
+            int yOffset = y * width;
             for (int x = 0; x < width; x++) {
                 int red = clamp(convolution(x, y, GAUSSIAN_FILTER, RED) / GAUSSIAN_SUM);
                 int green = clamp(convolution(x, y, GAUSSIAN_FILTER, GREEN) / GAUSSIAN_SUM);
                 int blue = clamp(convolution(x, y, GAUSSIAN_FILTER, BLUE) / GAUSSIAN_SUM);
-                newPixels[y * width + x] = createPixel(red, green, blue);
+                newPixels[yOffset + x] = createPixel(red, green, blue);
             }
-        }
+        });
         pushImage(newPixels);
         long endBlur = System.currentTimeMillis();
         if (debug) {
