@@ -58,6 +58,60 @@ __kernel void gaussianBlur(__global int *pixels, __global int *newPixels,
 __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
                               const int width, const int height, const int edgeThreshold) {
 
+    // Predefined 3x3 Sobel operators
+    const int sobelVertical[9] = {-1, 0, 1,
+                                  -2, 0, 2,
+                                  -1, 0, 1};
+    const int sobelHorizontal[9] = {1,  2,  1,
+                                    0,  0,  0,
+                                   -1, -2, -1};
+
+    // Get current pixel coordinates
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    if (x >= width || y >= height) return;  // Boundary check - return if coordinates are out of bounds
+
+    // Initialize gradient accumulators
+    int redV = 0, greenV = 0, blueV = 0;  // Vertical gradients
+    int redH = 0, greenH = 0, blueH = 0;  // Horizontal gradients
+
+    // Apply 3x3 Sobel filter
+    for (int ky = -1; ky <= 1; ky++) {
+        for (int kx = -1; kx <= 1; kx++) {
+            // Clamp pixel coordinates to image boundaries
+            int px = clamp(x + kx, 0, width - 1);
+            int py = clamp(y + ky, 0, height - 1);
+            // Get source pixel value (ARGB format)
+            int pixel = pixels[py * width + px];
+
+            / Extract RGB components
+            int r = (pixel & 0x00FF0000) >> 16;  // Red channel (bits 16-23)
+            int g = (pixel & 0x0000FF00) >> 8;   // Green channel (bits 8-15)
+            int b = (pixel & 0x000000FF);        // Blue channel (bits 0-7)
+            // Calculate kernel index (0-8)
+            int kidx = (ky + 1) * 3 + (kx + 1);
+
+            // Accumulate vertical gradients
+            redV += r * sobelVertical[kidx];
+            greenV += g * sobelVertical[kidx];
+            blueV += b * sobelVertical[kidx];
+
+            // Accumulate horizontal gradients
+            redH += r * sobelHorizontal[kidx];
+            greenH += g * sobelHorizontal[kidx];
+            blueH += b * sobelHorizontal[kidx];
+        }
+    }
+
+    // Calculate absolute gradient magnitudes
+    int vertGrad = abs(redV) + abs(greenV) + abs(blueV);  // Vertical edge strength
+    int horizGrad = abs(redH) + abs(greenH) + abs(blueH); // Horizontal edge strength
+    int totalGrad = vertGrad + horizGrad;
+
+    // Thresholding - black for edges, white for non-edges
+    // 0xFF000000 = opaque black (ARGB)
+    // 0xFFFFFFFF = opaque white (ARGB)
+    newPixels[y * width + x] = (totalGrad >= edgeThreshold) ? 0xFF000000 : 0xFFFFFFFF;
 }
 
 
