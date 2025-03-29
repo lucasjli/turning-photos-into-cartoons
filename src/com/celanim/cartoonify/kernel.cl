@@ -114,10 +114,47 @@ __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
     newPixels[y * width + x] = (totalGrad >= edgeThreshold) ? 0xFF000000 : 0xFFFFFFFF;
 }
 
-
+int quantizeColour(int colourValue, int numPerChannel);
 __kernel void reduceColours(__global int *oldPixels, __global int *newPixels,
 		                    const int width, const int height, const int numColours) {
+    int x = get_global_id(0);
+    int y = get_global_id(1);
 
+    // Boundary check
+    if (x >= width || y >= height) return;
+
+    // Pixel index calculation
+    int rgb = oldPixels[y * width + x];
+
+    // Extract RGB components
+    int a = (rgb >> 24) & 0xFF;
+    int red = (rgb >> 16) & 0xFF;
+    int green = (rgb >> 8) & 0xFF;
+    int blue = rgb & 0xFF;
+
+    // Quantize each component with OpenCL-compatible rounding
+    int r = quantizeColour(red, numColours);
+    int g = quantizeColour(green, numColours);
+    int b = quantizeColour(blue, numColours);
+
+    // Combine back into ARGB format
+    newPixels[y * width + x] = (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+int quantizeColour(int colourValue, int numPerChannel) {
+    const int COLOUR_BITS = 8;
+    const int COLOUR_MASK = (1 << COLOUR_BITS) - 1;
+
+    // Normalize to [0, numPerChannel) range
+    float colour = (float)colourValue / (COLOUR_MASK + 1.0f) * numPerChannel;
+
+    // Discrete with Java-compatible rounding
+    int discrete = (int)floor(colour - 0.5f + 0.49999f); // OpenCL无Math.round，用此模拟
+
+    // Boundary protection
+    discrete = max(0, min(discrete, numPerChannel - 1));
+
+    return (discrete * COLOUR_MASK) / (numPerChannel - 1);
 }
 
 __kernel void mergeMask(__global int *maskPixels, __global int *photoPixels, __global int *newPixels,
