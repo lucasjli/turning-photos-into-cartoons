@@ -84,7 +84,7 @@ __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
             // Get source pixel value (ARGB format)
             int pixel = pixels[py * width + px];
 
-            / Extract RGB components
+            // Extract RGB components
             int r = (pixel & 0x00FF0000) >> 16;  // Red channel (bits 16-23)
             int g = (pixel & 0x0000FF00) >> 8;   // Green channel (bits 8-15)
             int b = (pixel & 0x000000FF);        // Blue channel (bits 0-7)
