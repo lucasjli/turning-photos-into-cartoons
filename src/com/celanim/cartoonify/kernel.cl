@@ -149,7 +149,7 @@ int quantizeColour(int colourValue, int numPerChannel) {
     float colour = (float)colourValue / (COLOUR_MASK + 1.0f) * numPerChannel;
 
     // Discrete with Java-compatible rounding
-    int discrete = (int)floor(colour - 0.5f + 0.49999f); // OpenCL无Math.round，用此模拟
+    int discrete = (int)floor(colour - 0.5f + 0.49999f);
 
     // Boundary protection
     discrete = max(0, min(discrete, numPerChannel - 1));
@@ -159,6 +159,18 @@ int quantizeColour(int colourValue, int numPerChannel) {
 
 __kernel void mergeMask(__global int *maskPixels, __global int *photoPixels, __global int *newPixels,
 		                const int maskColour, const int width) {
+    // Get 2D thread coordinates (current pixel position)
+    int x = get_global_id(0);
+    int y = get_global_id(1);
 
+    int idx = y * width + x;  // Calculate 1D buffer index from 2D coordinates
+
+    // If mask pixel matches the specified color, use photo pixel
+    // Otherwise, keep the original mask pixel value
+    if (maskPixels[idx] == maskColour) {
+        newPixels[idx] = photoPixels[idx];  // Copy entire pixel (including alpha channel) from source photo
+    } else {
+        newPixels[idx] = maskPixels[idx];  // Preserve non-mask areas from the original mask
+    }
 }
 
