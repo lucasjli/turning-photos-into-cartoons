@@ -1,58 +1,75 @@
 // Guassian Blur kernel
-__kernel void gaussianBlur(__global int *pixels, __global int *newPixels,
-                           const int width, const int height) {
+#define GAUSSIAN_SUM 159.0
 
-    __const int GAUSSIAN_FILTER[25] = {
-        2,  4,  5,  4, 2,
-        4,  9, 12,  9, 4,
-        5, 12, 15, 12, 5,
-        4,  9, 12,  9, 4,
-        2,  4,  5,  4, 2
-    };
-    const float GAUSSIAN_SUM = 159.0f;
+int wrap(int pos, int size) {
+    if (pos < 0) {
+        pos = -1 - pos;
+    } else if (pos >= size) {
+        pos = (size - 1) - (pos - size);
+    }
+    return pos;
+}
 
-    // Get current pixel coordinates
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+__constant int GAUSSIAN_FILTER[25] = {
+    2, 4, 5, 4, 2,
+    4, 9, 12, 9, 4,
+    5, 12, 15, 12, 5,
+    4, 9, 12, 9, 4,
+    2, 4, 5, 4, 2
+};
 
-    // Boundary check
-    if (x >= width || y >= height) return;
+int getChannel(int pixel, int channel) {
+    return (pixel >> (8 * channel)) & 0xFF;
+}
 
-    // Initialize accumulators for RGB channels
-    float redSum = 0.0f, greenSum = 0.0f, blueSum = 0.0f;
+int createPixel(int red, int green, int blue) {
+    return (255 << 24) | (red << 16) | (green << 8) | blue;
+}
 
-    // Apply 5x5 Gaussian filter
-    for (int ky = -2; ky <= 2; ky++) {      // Vertical kernel offset
-        for (int kx = -2; kx <= 2; kx++) {  // Horizontal kernel offset
-            // Clamp pixel coordinates to image boundaries
-            int px = clamp(x + kx, 0, width - 1);
-            int py = clamp(y + ky, 0, height - 1);
-            // Get source pixel value
-            int pixel = pixels[py * width + px];
+int clampColor(float value) {
+    int result = (int)(value + 0.5f);
+    return result < 0 ? 0 : (result > 255 ? 255 : result);
+}
 
-            // Extract RGB components
-            int r = (pixel >> 16) & 0xFF;  // Red channel
-            int g = (pixel >> 8) & 0xFF;   // Green channel
-            int b = pixel & 0xFF;          // Blue channel
+int convolution(__global const int* pixels, int filterSize, int width, int height, int xCentre, int yCentre, int colour) {
+    int sum = 0;
+    int weightSum = 0;
+    int filterHalf = filterSize / 2;
 
-            // Calculate kernel index
-            int kidx = (ky + 2) * 5 + (kx + 2);
-            int weight = GAUSSIAN_FILTER[kidx];
+    for (int filterY = 0; filterY < filterSize; filterY++) {
+        int y = wrap(yCentre + filterY - filterHalf, height);
+        for (int filterX = 0; filterX < filterSize; filterX++) {
+            int x = wrap(xCentre + filterX - filterHalf, width);
 
-            // Accumulate weighted color values
-            redSum += (float)r * weight;
-            greenSum += (float)g * weight;
-            blueSum += (float)b * weight;
+            int rgb = pixels[y * width + x];
+            int filterVal = GAUSSIAN_FILTER[filterY * filterSize + filterX];
+
+            int colourValue = getChannel(rgb, colour);
+            sum += colourValue * filterVal;
+            weightSum += filterVal;
         }
     }
 
-    // Normalize and round the results
-    int red = (int)round(redSum / GAUSSIAN_SUM);
-    int green = (int)round(greenSum / GAUSSIAN_SUM);
-    int blue = (int)round(blueSum / GAUSSIAN_SUM);
+    return (sum + weightSum / 2) / weightSum;
+}
 
-    // Combine channels back into ARGB format and store result
-    newPixels[y*width+x] = 0xFF000000 | (clamp(red,0,255)<<16) | (clamp(green,0,255)<<8) | clamp(blue,0,255);
+
+__kernel void gaussianBlur(__global int *pixels, __global int *newPixels,
+                           const int width, const int height) {
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+
+    if (x >= width || y >= height) return;
+
+    int red = convolution(pixels, 5, width, height, x, y, 2);
+    int green = convolution(pixels, 5, width, height, x, y, 1);
+    int blue = convolution(pixels, 5, width, height, x, y, 0);
+
+    red = clampColor((float)red);
+    green = clampColor((float)green);
+    blue = clampColor((float)blue);
+
+    newPixels[y * width + x] = createPixel(red, green, blue);
 }
 
 __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
