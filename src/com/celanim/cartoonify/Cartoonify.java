@@ -685,15 +685,132 @@ public class Cartoonify {
      * Implement this method to process one input photo on GPU or GPU and CPU
      */
     protected void processPhotoOpenCL() {
+        // OpenCL objects initialization
+        cl_context context = null;
+        cl_command_queue queue = null;
+        cl_program program = null;
+        cl_kernel blurKernel = null, sobelKernel = null, reduceKernel = null, mergeKernel = null;
+        cl_mem[] buffers = new cl_mem[5]; // 0:input, 1:blurOut, 2:edgeOut, 3:quantOut, 4:finalOut
+
         try {
-            // We can read the kernel file to a string using below code
+            // ========== 1. Load and compile OpenCL program ========== //
             final String srcCode = JOCLUtil.readResourceToString("/com/celanim/cartoonify/kernel.cl");
             System.out.println("Reading 'kernel.cl' file completed!");
+
+            // Initialize OpenCL environment
+            cl_platform_id platform = getFirstPlatform();
+            cl_device_id device = getFirstDevice(platform);
+            context = clCreateContext(null, 1, new cl_device_id[]{device}, null, null, null);
+            queue = clCreateCommandQueue(context, device, 0, null);
+
+            // Prepare image buffers
+            int[] currentPixels = currentImage();
+            int[] blurredPixels = new int[width * height];
+            int[] edgePixels = new int[width * height];
+            int[] quantizedPixels = new int[width * height];
+            int[] finalPixels = new int[width * height];
+
+            // ========== 2. Create memory buffers ========== //
+            buffers[0] = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                    Sizeof.cl_int * currentPixels.length, Pointer.to(currentPixels), null);
+            buffers[1] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+                    Sizeof.cl_int * blurredPixels.length, null, null);
+            buffers[2] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+                    Sizeof.cl_int * edgePixels.length, null, null);
+            buffers[3] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+                    Sizeof.cl_int * quantizedPixels.length, null, null);
+            buffers[4] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+                    Sizeof.cl_int * finalPixels.length, null, null);
+
+            // ========== 3. Build OpenCL program ========== //
+            program = clCreateProgramWithSource(context, 1, new String[]{srcCode}, null, null);
+            clBuildProgram(program, 0, null, null, null, null);
+
+            // Create kernels
+            blurKernel = clCreateKernel(program, "gaussianBlur", null);
+            sobelKernel = clCreateKernel(program, "sobelEdgeDetect", null);
+            reduceKernel = clCreateKernel(program, "reduceColours", null);
+            mergeKernel = clCreateKernel(program, "mergeMask", null);
+
+            // ========== 4. Execute processing pipeline ========== //
+            // Step 1: Gaussian Blur
+            setKernelArgs(blurKernel, buffers[0], buffers[1], width, height);
+            runKernel2D(queue, blurKernel, width, height);
+            clFinish(queue);
+
+            // Step 2: Edge Detection
+            setKernelArgs(sobelKernel, buffers[1], buffers[2], width, height, edgeThreshold);
+            runKernel2D(queue, sobelKernel, width, height);
+            clFinish(queue);
+
+            // Step 3: Color Quantization
+            setKernelArgs(reduceKernel, buffers[1], buffers[3], width, height, numColours);
+            runKernel2D(queue, reduceKernel, width, height);
+            clFinish(queue);
+
+            // Step 4: Mask Merging (edges + quantized colors)
+            setKernelArgs(mergeKernel, buffers[2], buffers[3], buffers[4], 0xFFFFFFFF, width);
+            runKernel2D(queue, mergeKernel, width, height);
+            clFinish(queue);
+
+            // ========== 5. Retrieve final result ========== //
+            readBuffer(queue, buffers[4], finalPixels);
+            pushImage(finalPixels);
+
         } catch (Exception ex) {
-            System.err.print("Error occurred! " + ex.toString());
+            System.err.println("OpenCL processing failed: " + ex.getMessage());
+            ex.printStackTrace();
+        } finally {
+
+            // ========== 6. Cleanup resources ========== //
+            releaseResources(new cl_kernel[]{blurKernel, sobelKernel, reduceKernel, mergeKernel}, buffers);
+            if (queue != null) clReleaseCommandQueue(queue);
+            if (program != null) clReleaseProgram(program);
+            if (context != null) clReleaseContext(context);
         }
+    }
 
+    // ========== Utility Methods ========== //
 
+    private void setKernelArgs(cl_kernel kernel, Object... args) {
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] instanceof cl_mem) {
+                clSetKernelArg(kernel, i, Sizeof.cl_mem, Pointer.to((cl_mem) args[i]));
+            } else if (args[i] instanceof Integer) {
+                clSetKernelArg(kernel, i, Sizeof.cl_int, Pointer.to(new int[]{(Integer) args[i]}));
+            }
+        }
+    }
+
+    private void runKernel2D(cl_command_queue queue, cl_kernel kernel, int width, int height) {
+        clEnqueueNDRangeKernel(queue, kernel, 2, null,
+                new long[]{width, height}, null, 0, null, null);
+    }
+
+    private void readBuffer(cl_command_queue queue, cl_mem buffer, int[] output) {
+        clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0,
+                Sizeof.cl_int * output.length, Pointer.to(output), 0, null, null);
+    }
+
+    private void releaseResources(cl_kernel[] kernels, cl_mem[] buffers) {
+        for (cl_kernel kernel : kernels) if (kernel != null) clReleaseKernel(kernel);
+        for (cl_mem buffer : buffers) if (buffer != null) clReleaseMemObject(buffer);
+    }
+
+    private cl_platform_id getFirstPlatform() {
+        cl_platform_id[] platforms = new cl_platform_id[1];
+        clGetPlatformIDs(1, platforms, null);
+        return platforms[0];
+    }
+
+    private cl_device_id getFirstDevice(cl_platform_id platform) {
+        cl_device_id[] devices = new cl_device_id[1];
+        clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, devices, null);
+        if (devices[0] == null) {
+            System.out.println("No GPU found, using CPU");
+            clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, devices, null);
+        }
+        return devices[0];
     }
 
     /**
