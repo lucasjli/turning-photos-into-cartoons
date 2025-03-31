@@ -744,7 +744,7 @@ public class Cartoonify {
             clFinish(queue);
 
             // Step 3: Color Quantization
-            setKernelArgs(reduceKernel, buffers[1], buffers[3], width, height, numColours);
+            setKernelArgs(reduceKernel, buffers[0], buffers[3], width, height, numColours);
             runKernel2D(queue, reduceKernel, width, height);
             clFinish(queue);
 
