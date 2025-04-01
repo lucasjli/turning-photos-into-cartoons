@@ -37,6 +37,7 @@ int convolution(__global const int* pixels, int filterSize, int width, int heigh
     int weightSum = 0;
     int filterHalf = filterSize / 2;
 
+    // Loop unrolling, the filterSize is 5
     #pragma unroll 5
     for (int filterY = 0; filterY < 5; filterY++) {
         int y = wrap(yCentre + filterY - filterHalf, height);
@@ -80,8 +81,8 @@ __constant int SOBEL_VERTICAL_FILTER[] = {-1, 0, 1,
                                           -2, 0, 2,
                                           -1, 0, 1};
 __constant int SOBEL_HORIZONTAL_FILTER[] = {1,  2,  1,
-                                             0,  0,  0,
-                                            -1, -2, -1};
+                                            0,  0,  0,
+                                           -1, -2, -1};
 
 // Channel definitions
 #define RED 2  // Based on getChannel implementation (0=blue, 1=green, 2=red)
@@ -99,6 +100,7 @@ __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
     int redV = 0, greenV = 0, blueV = 0;  // Vertical gradients
     int redH = 0, greenH = 0, blueH = 0;  // Horizontal gradients
 
+    // Loop unrolling, the Sobel filter consists of 9 elements
     #pragma unroll 9
     for (int i = 0; i < 9; i++) {
         int kx = (i % 3) - 1;
