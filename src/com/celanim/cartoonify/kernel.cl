@@ -2,12 +2,13 @@
 #define GAUSSIAN_SUM 159.0
 
 int wrap(int pos, int size) {
-    if (pos < 0) {
+    /*if (pos < 0) {
         pos = -1 - pos;
     } else if (pos >= size) {
         pos = (size - 1) - (pos - size);
     }
-    return pos;
+    return pos;*/
+return max(0, min(pos, size - 1));  // Implement the same logic as Java code
 }
 
 __constant int GAUSSIAN_FILTER[25] = {
