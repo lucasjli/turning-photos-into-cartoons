@@ -320,21 +320,21 @@ public class Cartoonify {
     public void gaussianBlur() {
         long startBlur = System.currentTimeMillis();
         int[] newPixels = new int[width * height];
-        IntStream.range(0, height).parallel().forEach(y -> {
-            int yOffset = y * width;
+        for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int red = clamp(convolution(x, y, GAUSSIAN_FILTER, RED) / GAUSSIAN_SUM);
                 int green = clamp(convolution(x, y, GAUSSIAN_FILTER, GREEN) / GAUSSIAN_SUM);
                 int blue = clamp(convolution(x, y, GAUSSIAN_FILTER, BLUE) / GAUSSIAN_SUM);
-                newPixels[yOffset + x] = createPixel(red, green, blue);
+                newPixels[y * width + x] = createPixel(red, green, blue);
             }
-        });
+        }
         pushImage(newPixels);
         long endBlur = System.currentTimeMillis();
         if (debug) {
             System.out.println("  gaussian blurring took " + (endBlur - startBlur) / 1e3 + " secs.");
         }
     }
+
 
     public static final int[] SOBEL_VERTICAL_FILTER = {
             -1, 0, +1,
@@ -359,9 +359,7 @@ public class Cartoonify {
     public void sobelEdgeDetect() {
         long startEdges = System.currentTimeMillis();
         int[] newPixels = new int[width * height];
-
-        IntStream.range(0, height).parallel().forEach(y -> {
-            int yOffset = y * width;
+        for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int redVertical = convolution(x, y, SOBEL_VERTICAL_FILTER, RED);
                 int greenVertical = convolution(x, y, SOBEL_VERTICAL_FILTER, GREEN);
@@ -374,12 +372,12 @@ public class Cartoonify {
                 // we could take use sqrt(vertGrad^2 + horizGrad^2), but simple addition catches most edges.
                 int totalGradient = verticalGradient + horizontalGradient;
                 if (totalGradient >= edgeThreshold) {
-                    newPixels[yOffset + x] = black; // we colour the edges black
+                    newPixels[y * width + x] = black; // we colour the edges black
                 } else {
-                    newPixels[yOffset + x] = white;
+                    newPixels[y * width + x] = white;
                 }
             }
-        });
+        }
         pushImage(newPixels);
         long endEdges = System.currentTimeMillis();
         if (debug) {
@@ -397,20 +395,16 @@ public class Cartoonify {
         long startQuantize = System.currentTimeMillis();
         int[] oldPixels = currentImage();
         int[] newPixels = new int[width * height];
-        IntStream.range(0, height).parallel().forEach(y -> {
-            int yOffset = y * width;
+        for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int rgb = oldPixels[yOffset + x];
-                int newRed = red(rgb);
-                int newGreen = green(rgb);
-                int newBlue = blue(rgb);
-                newPixels[yOffset + x] = createPixel(
-                        quantizeColour(newRed, numColours),
-                        quantizeColour(newGreen, numColours),
-                        quantizeColour(newBlue, numColours)
-                );
+                int rgb = oldPixels[y * width + x];
+                int newRed = quantizeColour(red(rgb), numColours);
+                int newGreen = quantizeColour(green(rgb), numColours);
+                int newBlue = quantizeColour(blue(rgb), numColours);
+                int newRGB = createPixel(newRed, newGreen, newBlue);
+                newPixels[y * width + x] = newRGB;
             }
-        });
+        }
         pushImage(newPixels);
         long endQuantize = System.currentTimeMillis();
         if (debug) {
@@ -467,13 +461,16 @@ public class Cartoonify {
         cloneImage(otherImage);
         int[] photoPixels = popImage();
         int[] newPixels = new int[width * height];
-        IntStream.range(0, width * height).parallel().forEach(index -> {
-            if (maskPixels[index] == maskColour) {
-                newPixels[index] = photoPixels[index];
-            } else {
-                newPixels[index] = maskPixels[index];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = y * width + x;
+                if (maskPixels[index] == maskColour) {
+                    newPixels[index] = photoPixels[index];
+                } else {
+                    newPixels[index] = maskPixels[index];
+                }
             }
-        });
+        }
         pushImage(newPixels);
         long endMasking = System.currentTimeMillis();
         if (debug) {
@@ -499,24 +496,39 @@ public class Cartoonify {
      * @param colour  which colour to apply the filter to.
      * @return the sum of multiplying the requested colour of each pixel by its filter factor.
      */
+    // Optimized version of convolution() function
     int convolution(int xCentre, int yCentre, int[] filter, int colour) {
         int sum = 0;
-        // find the width and height of the filter matrix, which must be square.
-        int filterSize = 1;
-        while (filterSize * filterSize < filter.length) {
-            filterSize++;
-        }
+
+        // Compute filter size using sqrt instead of iterative computation
+        int filterSize = (int) Math.sqrt(filter.length);
         if (filterSize * filterSize != filter.length) {
             throw new IllegalArgumentException("non-square filter: " + Arrays.toString(filter));
         }
-        final int filterHalf = filterSize / 2;
+        final int filterHalf = filterSize >> 1; // Use bit shift instead of division
+
+        // Precompute wrapped coordinates to avoid redundant calculations
+        int[] wrappedY = new int[filterSize];
+        int[] wrappedX = new int[filterSize];
+        for (int i = 0; i < filterSize; i++) {
+            wrappedY[i] = wrap(yCentre + i - filterHalf, height) * width; // Precompute y * width
+            wrappedX[i] = wrap(xCentre + i - filterHalf, width);
+        }
+
+        // Cache the current image to avoid redundant function calls
+        int[] image = pixels[currImage];
+
+        // Perform convolution
         for (int filterY = 0; filterY < filterSize; filterY++) {
-            int y = wrap(yCentre + filterY - filterHalf, height);
+            int yOffset = wrappedY[filterY]; // Use precomputed y offset
             for (int filterX = 0; filterX < filterSize; filterX++) {
-                int x = wrap(xCentre + filterX - filterHalf, width);
-                int rgb = pixel(x, y);
+                int x = wrappedX[filterX];
+                int rgb = image[yOffset + x]; // Directly access pixel array, avoiding function call
+
                 int filterVal = filter[filterY * filterSize + filterX];
-                sum += colourValue(rgb, colour) * filterVal;
+
+                // Inline colourValue computation to avoid function call
+                sum += ((rgb >> (colour * COLOUR_BITS)) & COLOUR_MASK) * filterVal;
             }
         }
         // System.out.println("convolution(" + xCentre + ", " + yCentre + ") = " + sum);
