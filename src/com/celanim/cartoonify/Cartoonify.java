@@ -547,15 +547,18 @@ public class Cartoonify {
      * @param size the width of the image (for x value) or the height (for y values).
      * @return the new index, which is in the range <code>0 .. size-1</code>.
      */
+    // Optimized version wrap() function
     public int wrap(int pos, int size) {
-        if (pos < 0) {
+        /*if (pos < 0) {
             pos = -1 - pos;
         } else if (pos >= size) {
             pos = (size - 1) - (pos - size);
         }
         assert 0 <= pos;
         assert pos < size;
-        return pos;
+        return pos;*/
+    // Avoid branching (if-else) and improves performance by reducing CPU pipeline stalls
+    return Math.max(0,Math.min(pos,size-1));
     }
 
     /**
