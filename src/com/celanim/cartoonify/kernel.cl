@@ -37,9 +37,11 @@ int convolution(__global const int* pixels, int filterSize, int width, int heigh
     int weightSum = 0;
     int filterHalf = filterSize / 2;
 
-    for (int filterY = 0; filterY < filterSize; filterY++) {
+    #pragma unroll 5
+    for (int filterY = 0; filterY < 5; filterY++) {
         int y = wrap(yCentre + filterY - filterHalf, height);
-        for (int filterX = 0; filterX < filterSize; filterX++) {
+        #pragma unroll 5
+        for (int filterX = 0; filterX < 5; filterX++) {
             int x = wrap(xCentre + filterX - filterHalf, width);
 
             int rgb = pixels[y * width + x];
@@ -97,28 +99,28 @@ __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
     int redV = 0, greenV = 0, blueV = 0;  // Vertical gradients
     int redH = 0, greenH = 0, blueH = 0;  // Horizontal gradients
 
-    for (int ky = -1; ky <= 1; ky++) {
-        for (int kx = -1; kx <= 1; kx++) {
-            int px = wrap(x + kx, width);
-            int py = wrap(y + ky, height);
-            int pixel = pixels[py * width + px];
+    #pragma unroll 9
+    for (int i = 0; i < 9; i++) {
+        int kx = (i % 3) - 1;
+        int ky = (i / 3) - 1;
 
-            int r = getChannel(pixel, RED);
-            int g = getChannel(pixel, GREEN);
-            int b = getChannel(pixel, BLUE);
+        int px = wrap(x + kx, width);
+        int py = wrap(y + ky, height);
+        int pixel = pixels[py * width + px];
 
-            int kidx = (ky + 1) * 3 + (kx + 1);
+        int r = getChannel(pixel, RED);
+        int g = getChannel(pixel, GREEN);
+        int b = getChannel(pixel, BLUE);
 
-            // Accumulate vertical gradients
-            redV += r * SOBEL_VERTICAL_FILTER[kidx];
-            greenV += g * SOBEL_VERTICAL_FILTER[kidx];
-            blueV += b * SOBEL_VERTICAL_FILTER[kidx];
+        // Accumulate vertical gradients
+        redV += r * SOBEL_VERTICAL_FILTER[i];
+        greenV += g * SOBEL_VERTICAL_FILTER[i];
+        blueV += b * SOBEL_VERTICAL_FILTER[i];
 
-            // Horizontal Sobel
-            redH += r * SOBEL_HORIZONTAL_FILTER[kidx];
-            greenH += g * SOBEL_HORIZONTAL_FILTER[kidx];
-            blueH += b * SOBEL_HORIZONTAL_FILTER[kidx];
-        }
+        // Horizontal Sobel
+        redH += r * SOBEL_HORIZONTAL_FILTER[i];
+        greenH += g * SOBEL_HORIZONTAL_FILTER[i];
+        blueH += b * SOBEL_HORIZONTAL_FILTER[i];
     }
 
     // Calculate absolute gradient magnitudes
