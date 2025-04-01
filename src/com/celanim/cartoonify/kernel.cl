@@ -127,9 +127,11 @@ __kernel void sobelEdgeDetect(__global int *pixels, __global int *newPixels,
     int totalGrad = vertGrad + horizGrad;
 
     // Thresholding - black for edges, white for non-edges
-    newPixels[y * width + x] = (totalGrad >= edgeThreshold) ?
+    /*newPixels[y * width + x] = (totalGrad >= edgeThreshold) ?
         createPixel(0, 0, 0) :  // Black
-        createPixel(255, 255, 255);  // White
+        createPixel(255, 255, 255);*/  // White
+    // Use select() to remove conditional assignments
+    newPixels[y * width + x] = select(createPixel(255, 255, 255), createPixel(0, 0, 0), totalGrad >= edgeThreshold);
 }
 
 int quantizeColour(int colourValue, int numPerChannel);
@@ -185,10 +187,12 @@ __kernel void mergeMask(__global int *maskPixels, __global int *photoPixels, __g
 
     // If mask pixel matches the specified color, use photo pixel
     // Otherwise, keep the original mask pixel value
-    if (maskPixels[idx] == maskColour) {
+    /*if (maskPixels[idx] == maskColour) {
         newPixels[idx] = photoPixels[idx];  // Copy entire pixel (including alpha channel) from source photo
     } else {
         newPixels[idx] = maskPixels[idx];  // Preserve non-mask areas from the original mask
-    }
+    }*/
+    // Use select() to remove conditional assignments
+    newPixels[idx] = select(maskPixels[idx], photoPixels[idx], maskPixels[idx] == maskColour);
 }
 
