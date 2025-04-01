@@ -195,4 +195,3 @@ __kernel void mergeMask(__global int *maskPixels, __global int *photoPixels, __g
     // Use select() to remove conditional assignments
     newPixels[idx] = select(maskPixels[idx], photoPixels[idx], maskPixels[idx] == maskColour);
 }
-
