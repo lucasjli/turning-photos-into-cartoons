@@ -702,7 +702,7 @@ public class Cartoonify {
     protected void processPhotoOpenCL() {
         // OpenCL objects initialization
         cl_context context = null;
-        cl_command_queue queue = null;
+        cl_command_queue queue1 = null, queue2 = null;  // Define two command queues for parallel execution
         cl_program program = null;
         cl_kernel blurKernel = null, sobelKernel = null, reduceKernel = null, mergeKernel = null;
         cl_mem[] buffers = new cl_mem[5]; // 0:input, 1:blurOut, 2:edgeOut, 3:quantOut, 4:finalOut
@@ -716,7 +716,10 @@ public class Cartoonify {
             cl_platform_id platform = getFirstPlatform();
             cl_device_id device = getFirstDevice(platform);
             context = clCreateContext(null, 1, new cl_device_id[]{device}, null, null, null);
-            queue = clCreateCommandQueue(context, device, 0, null);
+
+            // Create two command queues for parallel execution
+            queue1 = clCreateCommandQueue(context, device, 0, null);
+            queue2 = clCreateCommandQueue(context, device, 0, null);
 
             // Prepare image buffers
             int[] currentPixels = currentImage();
@@ -750,26 +753,25 @@ public class Cartoonify {
             // ========== 4. Execute processing pipeline ========== //
             // Step 1: Gaussian Blur
             setKernelArgs(blurKernel, buffers[0], buffers[1], width, height);
-            runKernel2D(queue, blurKernel, width, height);
-            clFinish(queue);
+            runKernel2D(queue1, blurKernel, width, height);
+            clFinish(queue1);
 
-            // Step 2: Edge Detection
+            // Step 2: Edge Detection (run on queue2 to parallelize)
             setKernelArgs(sobelKernel, buffers[1], buffers[2], width, height, edgeThreshold);
-            runKernel2D(queue, sobelKernel, width, height);
-            clFinish(queue);
+            runKernel2D(queue2, sobelKernel, width, height);
 
-            // Step 3: Color Quantization
+            // Step 3: Color Quantization (run on queue2 to parallelize)
             setKernelArgs(reduceKernel, buffers[0], buffers[3], width, height, numColours);
-            runKernel2D(queue, reduceKernel, width, height);
-            clFinish(queue);
+            runKernel2D(queue2, reduceKernel, width, height);
+            clFinish(queue2);
 
             // Step 4: Mask Merging (edges + quantized colors)
             setKernelArgs(mergeKernel, buffers[2], buffers[3], buffers[4], 0xFFFFFFFF, width);
-            runKernel2D(queue, mergeKernel, width, height);
-            clFinish(queue);
+            runKernel2D(queue1, mergeKernel, width, height);
+            clFinish(queue1);
 
             // ========== 5. Retrieve final result ========== //
-            readBuffer(queue, buffers[4], finalPixels);
+            readBuffer(queue1, buffers[4], finalPixels);
             pushImage(finalPixels);
 
         } catch (Exception ex) {
@@ -779,7 +781,8 @@ public class Cartoonify {
 
             // ========== 6. Cleanup resources ========== //
             releaseResources(new cl_kernel[]{blurKernel, sobelKernel, reduceKernel, mergeKernel}, buffers);
-            if (queue != null) clReleaseCommandQueue(queue);
+            if (queue1 != null) clReleaseCommandQueue(queue1);
+            if (queue2 != null) clReleaseCommandQueue(queue2);
             if (program != null) clReleaseProgram(program);
             if (context != null) clReleaseContext(context);
         }
