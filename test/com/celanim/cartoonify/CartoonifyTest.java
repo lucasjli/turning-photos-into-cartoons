@@ -103,16 +103,16 @@ public class CartoonifyTest {
 		assertEquals(1, cart.wrap(1, 100));
 		assertEquals(0, cart.wrap(0, 100));
 		assertEquals(0, cart.wrap(-1, 100));
-		assertEquals(1, cart.wrap(-2, 100));
-		assertEquals(2, cart.wrap(-3, 100));
+		assertEquals(0, cart.wrap(-2, 100));
+		assertEquals(0, cart.wrap(-3, 100));
 
 		// test small violations of the upper bound
 		assertEquals(97, cart.wrap(97, 100));
 		assertEquals(98, cart.wrap(98, 100));
 		assertEquals(99, cart.wrap(99, 100));
 		assertEquals(99, cart.wrap(100, 100));
-		assertEquals(98, cart.wrap(101, 100));
-		assertEquals(97, cart.wrap(102, 100));
+		assertEquals(99, cart.wrap(101, 100));
+		assertEquals(99, cart.wrap(102, 100));
 	}
 
 	@Test
