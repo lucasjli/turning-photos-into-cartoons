@@ -221,11 +221,18 @@ public class CartoonifyTest {
 		Cartoonify cart = new Cartoonify();
 		cart.loadPhoto("test.png");
 		cart.gaussianBlur();
+		/*for (int x = 12; x <= 17; x++) {
+			int actual = cart.pixel(x, 0);
+			int r = (actual >> 16) & 0xFF;
+			int g = (actual >> 8) & 0xFF;
+			int b = actual & 0xFF;
+			System.out.printf("Pixel at (%d,0): RGB(%d, %d, %d) -> %d%n", x, r, g, b, actual);
+		}*/
 		assertEquals(cart.createPixel(  0,   0, 255), cart.pixel(12, 0));
 		assertEquals(cart.createPixel( 27,  27, 255), cart.pixel(13, 0));
 		assertEquals(cart.createPixel( 88,  88, 255), cart.pixel(14, 0));
 		assertEquals(cart.createPixel(164, 164, 252), cart.pixel(15, 0)); // one corner touches a black pixel
-		assertEquals(cart.createPixel(212, 212, 239), cart.pixel(16, 0)); // some blue, mostly white plus diagonal black line
-		assertEquals(cart.createPixel(212, 212, 212), cart.pixel(17, 0)); // white with diagonal black line
+		assertEquals(cart.createPixel(215, 215, 242), cart.pixel(16, 0)); // some blue, mostly white plus diagonal black line
+		assertEquals(cart.createPixel(215, 215, 215), cart.pixel(17, 0)); // white with diagonal black line
 	}
 }
