@@ -705,6 +705,7 @@ public class Cartoonify {
         cl_program program = null;
         cl_kernel blurKernel = null, sobelKernel = null, reduceKernel = null, mergeKernel = null;
         cl_mem[] buffers = new cl_mem[5]; // 0:input, 1:blurOut, 2:edgeOut, 3:quantOut, 4:finalOut
+        cl_event blurEvent = null, sobelEvent = null, reduceEvent = null, mergeEvent = null;
 
         try {
             // ========== 1. Load and compile OpenCL program ========== //
@@ -752,25 +753,25 @@ public class Cartoonify {
             // ========== 4. Execute processing pipeline ========== //
             // Step 1: Gaussian Blur
             setKernelArgs(blurKernel, buffers[0], buffers[1], width, height);
-            runKernel2D(queue1, blurKernel, width, height);
-            clFinish(queue1);
+            blurEvent = runKernel2D(queue1, blurKernel, width, height);
+            //clFinish(queue1);
 
             // Step 2: Edge Detection (run on queue2 to parallelize)
             setKernelArgs(sobelKernel, buffers[1], buffers[2], width, height, edgeThreshold);
-            runKernel2D(queue2, sobelKernel, width, height);
+            sobelEvent = runKernel2D(queue2, sobelKernel, width, height, blurEvent);
 
             // Step 3: Color Quantization (run on queue2 to parallelize)
             setKernelArgs(reduceKernel, buffers[0], buffers[3], width, height, numColours);
-            runKernel2D(queue2, reduceKernel, width, height);
-            clFinish(queue2);
+            reduceEvent = runKernel2D(queue2, reduceKernel, width, height);
+            //clFinish(queue2);
 
             // Step 4: Mask Merging (edges + quantized colors)
             setKernelArgs(mergeKernel, buffers[2], buffers[3], buffers[4], 0xFFFFFFFF, width);
-            runKernel2D(queue1, mergeKernel, width, height);
-            clFinish(queue1);
+            mergeEvent = runKernel2D(queue1, mergeKernel, width, height, sobelEvent, reduceEvent);
+            //clFinish(queue1);
 
             // ========== 5. Retrieve final result ========== //
-            readBuffer(queue1, buffers[4], finalPixels);
+            readBuffer(queue1, buffers[4], finalPixels, mergeEvent);
             pushImage(finalPixels);
 
         } catch (Exception ex) {
@@ -784,6 +785,10 @@ public class Cartoonify {
             if (queue2 != null) clReleaseCommandQueue(queue2);
             if (program != null) clReleaseProgram(program);
             if (context != null) clReleaseContext(context);
+            if (blurEvent != null) clReleaseEvent(blurEvent);
+            if (sobelEvent != null) clReleaseEvent(sobelEvent);
+            if (reduceEvent != null) clReleaseEvent(reduceEvent);
+            if (mergeEvent != null) clReleaseEvent(mergeEvent);
         }
     }
 
@@ -799,14 +804,16 @@ public class Cartoonify {
         }
     }
 
-    private void runKernel2D(cl_command_queue queue, cl_kernel kernel, int width, int height) {
+    private cl_event runKernel2D(cl_command_queue queue, cl_kernel kernel, int width, int height, cl_event... waitEvents) {
+        cl_event event = new cl_event();
         clEnqueueNDRangeKernel(queue, kernel, 2, null,
-                new long[]{width, height}, null, 0, null, null);
+                new long[]{width, height}, null, waitEvents == null ? 0 : waitEvents.length, waitEvents.length > 0 ? waitEvents : null, event);
+        return event;
     }
 
-    private void readBuffer(cl_command_queue queue, cl_mem buffer, int[] output) {
+    private void readBuffer(cl_command_queue queue, cl_mem buffer, int[] output, cl_event... waitEvents) {
         clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0,
-                Sizeof.cl_int * output.length, Pointer.to(output), 0, null, null);
+                Sizeof.cl_int * output.length, Pointer.to(output), waitEvents == null ? 0 : waitEvents.length, waitEvents.length > 0 ? waitEvents : null, null);
     }
 
     private void releaseResources(cl_kernel[] kernels, cl_mem[] buffers) {
