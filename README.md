@@ -1,18 +1,6 @@
-# Assignment Three Turning Photos into Cartoons (20%)
+# Turning Photos into Cartoons
 
 
-**Due date 4 April at 11:30 pm**
-
-## Instruction
-* Fork the project by clicking the "Fork" button on the top-right corner.
-* **Make sure that the visibility of your new repository (the one you just forked) is set to private.**
-* You can obtain the URL of your forked project by clicking the "Clone" button (beside "Fork") and then the “copy to clipboard icon" at the right of the dropdown.
-* Clone the new repository to your computer and open the project with IntelliJ, by using command line or IntelliJ interface
-  * Using the Git command line: You will need to install a Git client yourself if you are not using the lab machines. In a termial on your computer, clone the assignment one repository to your computer using the command “git clone `<url you copied>`”. Open the project into your IntelliJ workspace. (File / Open the project directory).
-  * IntelliJ: Alternatively, you could get the project from GitLab repository via IntelliJ interface. From the menu bar, 'Git' > 'Clone' > Copy the url to Repository URL > 'Clone' (Referenece: Get a project from version control: https://www.jetbrains.com/help/idea/import-project-or-module-wizard.html)
-* Commit your changes regularly, providing an informative commit message and using Git inside IntelliJ (Commit and Changes Tutorial: https://www.jetbrains.com/help/idea/commit-and-push-changes.html)
-
-You are expected to make at least 20 commits with messages to explain what have changed. `5 out of 60 marks are allocated for this`.
 
 
 ## Background
@@ -157,14 +145,4 @@ Done img_examples/img_sunflower.jpg -> img_examples/img_sunflower_cartoon.jpg in
 Done img_examples/img_surfers.jpg -> img_examples/img_surfers_cartoon.jpg in 1.107 secs.
 Average processing time is 2.641 for 7 photos.
 ```
-
-## Grading (60 marks in total)
-|Marks | Allocated to |
-|------|--------------|
-|5    | At least twenty informative Commit comments |
-|10    | Your GPU version runs correctly and produces the same results as the CPU version does (checked using md5sum)|
-|10    | (a) Experiments and Graphs [8 marks], (b) Discussion of the difficulties that you encountered, and any suggestions for future improvements or approaches. [2 marks]|
-|5     | Speed up the original java code (without GPU) |
-|15    | GPU speedup |
-|15    | OpenCL implementation (multiple-queues, memory objects sharing, etc.) and kernel optimizations|
 
